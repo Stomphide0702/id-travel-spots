@@ -363,6 +363,11 @@ function saveData(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({chk:chk
 
 let {chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections}=loadData();
 if(!openSections)openSections={};if(!expUid)expUid=0;if(!todoCats||!todoCats.length)todoCats=JSON.parse(JSON.stringify(DEFAULT_TODO_CATS));
+// 旧キー(food/sight/shop/other)→日本語名にマイグレーション
+const TODO_CAT_MIGRATE={food:'食事',sight:'観光',shop:'ショッピング',other:'その他'};
+todoData.forEach(it=>{if(TODO_CAT_MIGRATE[it.cat])it.cat=TODO_CAT_MIGRATE[it.cat];});
+// todoCatsに存在しないカテゴリのアイテムは「その他」に退避（データ消失防止）
+todoData.forEach(it=>{if(!todoCats.some(c=>c.name===it.cat)){if(!todoCats.some(c=>c.name==='その他'))todoCats.push({name:'その他',icon:'📌'});it.cat='その他';}});
 chkData.forEach(it=>{if(!cats.some(c=>c.name===it.cat))cats.push({name:it.cat,icon:'📦'});});
 let chkFilter='all',currentTab='checklist';
 
