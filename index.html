@@ -270,13 +270,23 @@ body{background:var(--bg);font-family:var(--sans)}
       </div>
       <div id="todo-groups"></div>
       <div class="add-form">
-        <select id="td-cat-sel">
-          <option value="food">食事</option><option value="sight">観光</option>
-          <option value="shop">ショッピング</option><option value="other">その他</option>
-        </select>
+        <select id="td-cat-sel"></select>
         <input type="text" id="td-name" placeholder="場所・やること...">
         <input type="text" id="td-note" placeholder="メモ（任意）">
         <button class="btn-add" onclick="addTodo()">&#xff0b; 追加</button>
+      </div>
+      <div class="cat-mgr">
+        <button class="btn-ghost" id="td-cat-mgr-toggle" onclick="toggleTdCatMgr()">&#9881; タスクのカテゴリを編集する</button>
+        <div class="card" id="td-cat-mgr-card" style="display:none;margin-top:10px">
+          <div class="card-title">カテゴリ管理</div>
+          <div id="td-cat-list"></div>
+          <div class="add-form" style="margin-top:12px;background:transparent;border:none;padding:0">
+            <input type="text" id="td-new-cat-icon" placeholder="絵文字" maxlength="2" style="flex:0 0 74px">
+            <input type="text" id="td-new-cat-name" placeholder="新しいカテゴリ名">
+            <button class="btn-add" onclick="addTdCat()">&#xff0b; 追加</button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">&#x2715; でカテゴリを削除できます。中のタスクごと削除されます。</div>
+        </div>
       </div>
     </div>
 
@@ -315,8 +325,9 @@ let _uid=Date.now();function uid(){return ++_uid}
 const STORAGE_KEY='jakarta_travel_v2';
 const RATES={JPY:1,IDR:1/107,USD:149.5};  // 1円=107ルピア固定（通信不要）
 const EXP_COLORS={'交通':'#6e9fc8','食事':'#7db88a','宿泊':'#9e86c8','観光':'#7dbbb5','ショッピング':'#c88a8a','その他':'#888'};
-const TODO_LABELS={food:'食事・レストラン',sight:'観光スポット',shop:'ショッピング',other:'その他'};
-const TODO_TAG={food:'tag-food',sight:'tag-sight',shop:'tag-shop',other:'tag-other'};
+const DEFAULT_TODO_CATS=[
+  {name:'食事',icon:'🍜'},{name:'観光',icon:'🏛'},{name:'ショッピング',icon:'🛍'},{name:'その他',icon:'📌'}
+];
 const TOPBAR_TITLES={checklist:'持ち物リスト',expense:'費用ログ',todo:'タスク',spot:'スポット案内'};
 
 const DEFAULT_CATS=[
@@ -337,21 +348,21 @@ const DEFAULT_CHK=[
   {cat:'ジム',name:'プロテイン',note:''},{cat:'ジム',name:'プロテイン容器',note:''},{cat:'ジム',name:'パワーグリップ',note:''},{cat:'ジム',name:'ジム用ウェア',note:''},{cat:'ジム',name:'ジム用タオル',note:''},
 ].map(x=>({...x,id:uid(),done:false}));
 const DEFAULT_TODO=[
-  {id:uid(),cat:'food',name:'Soto Betawi（ジャカルタ名物スープ）',note:'ローカル食堂',done:false},
-  {id:uid(),cat:'food',name:'Nasi Goreng（ナシゴレン）',note:'屋台 or ワルン',done:false},
-  {id:uid(),cat:'sight',name:'Kota Tua（バタビア旧市街）',note:'歴史地区',done:false},
-  {id:uid(),cat:'shop',name:'Grand Indonesia Mall',note:'お土産・ショッピング',done:false},
-  {id:uid(),cat:'other',name:'Grab配車でホテル間移動',note:'アプリで予約',done:false},
+  {id:uid(),cat:'食事',name:'Soto Betawi（ジャカルタ名物スープ）',note:'ローカル食堂',done:false},
+  {id:uid(),cat:'食事',name:'Nasi Goreng（ナシゴレン）',note:'屋台 or ワルン',done:false},
+  {id:uid(),cat:'観光',name:'Kota Tua（バタビア旧市街）',note:'歴史地区',done:false},
+  {id:uid(),cat:'ショッピング',name:'Grand Indonesia Mall',note:'お土産・ショッピング',done:false},
+  {id:uid(),cat:'その他',name:'Grab配車でホテル間移動',note:'アプリで予約',done:false},
 ];
 
 function loadData(){
-  try{const s=localStorage.getItem(STORAGE_KEY);if(s){const d=JSON.parse(s);if(!d.cats||!d.cats.length)d.cats=JSON.parse(JSON.stringify(DEFAULT_CATS));return d;}}catch(e){}
-  return{chk:DEFAULT_CHK,exp:[],todo:DEFAULT_TODO,cats:JSON.parse(JSON.stringify(DEFAULT_CATS)),expUid:0,openSections:{}};
+  try{const s=localStorage.getItem(STORAGE_KEY);if(s){const d=JSON.parse(s);if(!d.cats||!d.cats.length)d.cats=JSON.parse(JSON.stringify(DEFAULT_CATS));if(!d.todoCats||!d.todoCats.length)d.todoCats=JSON.parse(JSON.stringify(DEFAULT_TODO_CATS));return d;}}catch(e){}
+  return{chk:DEFAULT_CHK,exp:[],todo:DEFAULT_TODO,cats:JSON.parse(JSON.stringify(DEFAULT_CATS)),todoCats:JSON.parse(JSON.stringify(DEFAULT_TODO_CATS)),expUid:0,openSections:{}};
 }
-function saveData(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({chk:chkData,exp:expData,todo:todoData,cats,expUid,openSections}));}catch(e){}}
+function saveData(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections}));}catch(e){}}
 
-let {chk:chkData,exp:expData,todo:todoData,cats,expUid,openSections}=loadData();
-if(!openSections)openSections={};if(!expUid)expUid=0;
+let {chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections}=loadData();
+if(!openSections)openSections={};if(!expUid)expUid=0;if(!todoCats||!todoCats.length)todoCats=JSON.parse(JSON.stringify(DEFAULT_TODO_CATS));
 chkData.forEach(it=>{if(!cats.some(c=>c.name===it.cat))cats.push({name:it.cat,icon:'📦'});});
 let chkFilter='all',currentTab='checklist';
 
@@ -498,26 +509,43 @@ document.getElementById('exp-tbody').addEventListener('click',e=>{const btn=e.ta
 function addExp(){const n=document.getElementById('exp-name').value.trim(),a=parseFloat(document.getElementById('exp-amt').value);if(!n||!a){toast('内容と金額を入れてください');return;}expData.push({id:++expUid,name:n,cat:document.getElementById('exp-cat').value,amount:a,cur:document.getElementById('exp-cur').value,date:document.getElementById('exp-date').value});document.getElementById('exp-name').value='';document.getElementById('exp-amt').value='';saveData();renderExp();toast('追加しました');}
 function delExp(id){expData=expData.filter(x=>x.id!==id);saveData();renderExp();toast('削除しました');}
 
-// ===== TASK (旧 現地メモ) =====
-const tdOpenSec={food:true,sight:true,shop:true,other:true};
+// ===== TASK =====
+const tdOpenSec={};
+function renderTdCatSelect(){
+  const sel=document.getElementById('td-cat-sel'),cur=sel.value;
+  sel.innerHTML=todoCats.map(c=>'<option value="'+esc(c.name)+'">'+esc(c.icon)+' '+esc(c.name)+'</option>').join('');
+  if(todoCats.some(c=>c.name===cur))sel.value=cur;
+}
+function renderTdCatMgr(){
+  document.getElementById('td-cat-list').innerHTML=todoCats.map((c,i)=>
+    '<div class="cat-row"><span class="sec-icon">'+esc(c.icon)+'</span><span class="cat-row-name">'+esc(c.name)+'</span><span class="sec-count">'+todoData.filter(t=>t.cat===c.name).length+'個</span><button class="icon-btn danger" data-tdcati="'+i+'">&#x2715;</button></div>'
+  ).join('');
+  renderTdCatSelect();
+}
+document.getElementById('td-cat-list').addEventListener('click',e=>{const btn=e.target.closest('[data-tdcati]');if(btn)delTdCat(+btn.dataset.tdcati);});
+function toggleTdCatMgr(){const card=document.getElementById('td-cat-mgr-card'),btn=document.getElementById('td-cat-mgr-toggle'),show=card.style.display==='none';card.style.display=show?'block':'none';btn.textContent=show?'⚙ カテゴリ編集を閉じる':'⚙ タスクのカテゴリを編集する';}
+function addTdCat(){const name=document.getElementById('td-new-cat-name').value.trim(),icon=document.getElementById('td-new-cat-icon').value.trim()||'📌';if(!name){toast('カテゴリ名を入れてください');return;}if(todoCats.some(c=>c.name===name)){toast('同じ名前があります');return;}todoCats.push({name,icon});document.getElementById('td-new-cat-name').value='';document.getElementById('td-new-cat-icon').value='';saveData();renderTodo();renderTdCatMgr();toast('追加しました');}
+function delTdCat(i){const c=todoCats[i];if(!c)return;if(todoCats.length<=1){toast('最後のカテゴリは削除できません');return;}const items=todoData.filter(t=>t.cat===c.name);if(items.length>0&&!confirm('「'+c.name+'」と中のタスク'+items.length+'個を削除します。よろしいですか？'))return;todoData=todoData.filter(t=>t.cat!==c.name);todoCats.splice(i,1);saveData();renderTodo();renderTdCatMgr();toast('削除しました');}
 function renderTodo(){
-  const grps={food:[],sight:[],shop:[],other:[]};todoData.forEach(it=>{if(grps[it.cat])grps[it.cat].push(it);});
-  document.getElementById('todo-groups').innerHTML=Object.keys(TODO_LABELS).map(cat=>{
-    const items=grps[cat],doneC=items.filter(i=>i.done).length,isOpen=tdOpenSec[cat]!==false;
+  const grps={};todoCats.forEach(c=>grps[c.name]=[]);
+  todoData.forEach(it=>{if(grps[it.cat])grps[it.cat].push(it);});
+  document.getElementById('todo-groups').innerHTML=todoCats.map(c=>{
+    const cat=c.name,items=grps[cat]||[],doneC=items.filter(i=>i.done).length,isOpen=tdOpenSec[cat]!==false;
     let rows='';
     for(const it of items){
       rows+='<div class="todo-item">'
         +'<input class="chk-cb" type="checkbox" '+(it.done?'checked':'')+' data-tdid="'+it.id+'">'
         +'<div style="flex:1;min-width:0">'
-          +'<div class="todo-name'+(it.done?' done':'')+'"><span class="tag '+TODO_TAG[it.cat]+'">'+TODO_LABELS[it.cat].split('・')[0]+'</span>'+esc(it.name)+'</div>'
+          +'<div class="todo-name'+(it.done?' done':'')+'"><span class="tag tag-other">'+esc(c.icon)+'</span>'+esc(it.name)+'</div>'
           +(it.note?'<div class="todo-note">'+esc(it.note)+'</div>':'')
         +'</div>'
         +'<button class="icon-btn danger" data-tddel="'+it.id+'">&#x2715;</button>'
         +'</div>';
     }
     return '<div class="section-wrap">'
-      +'<div class="section-hdr '+(isOpen?'open':'')+'" data-tdcat="'+cat+'">'
-        +'<span class="sec-name">'+TODO_LABELS[cat]+'</span>'
+      +'<div class="section-hdr '+(isOpen?'open':'')+'" data-tdcat="'+esc(cat)+'">'
+        +'<span class="sec-icon">'+esc(c.icon)+'</span>'
+        +'<span class="sec-name">'+esc(cat)+'</span>'
         +'<span class="sec-count">'+doneC+'/'+items.length+'</span>'
         +'<span class="sec-chev" style="transform:rotate('+(isOpen?0:-90)+'deg)">&#9662;</span>'
       +'</div>'
@@ -574,11 +602,12 @@ function spotLocate(){
 document.getElementById('chk-new-name').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing)addChk();});
 document.getElementById('new-cat-name').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing)addCat();});
 document.getElementById('td-name').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing)addTodo();});
+document.getElementById('td-new-cat-name').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing)addTdCat();});
 document.getElementById('exp-amt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing)addExp();});
 document.getElementById('exp-date').valueAsDate=new Date();
 
 // INIT
-renderChk();renderCatMgr();renderExp();renderTodo();buildSpotCatBar();renderSpot();
+renderChk();renderCatMgr();renderExp();renderTodo();renderTdCatMgr();buildSpotCatBar();renderSpot();
 </script>
 </body>
 </html>
