@@ -458,7 +458,7 @@ function saveEdit(){
   document.getElementById('edit-modal').style.display='none';editingId=null;
   toast('更新しました');
 }
-document.getElementById('edit-name').addEventListener('keydown',e=>{if(e.key==='Enter')saveEdit();});
+document.getElementById('edit-name').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing)saveEdit();});
 
 // カテゴリ管理
 function renderCatSelect(){const sel=document.getElementById('chk-cat-sel'),cur=sel.value;sel.innerHTML=cats.map(c=>'<option value="'+esc(c.name)+'">'+esc(c.icon)+' '+esc(c.name)+'</option>').join('');if(cats.some(c=>c.name===cur))sel.value=cur;}
@@ -571,10 +571,10 @@ function spotLocate(){
 }
 
 // ENTER KEYS
-document.getElementById('chk-new-name').addEventListener('keydown',e=>{if(e.key==='Enter')addChk();});
-document.getElementById('new-cat-name').addEventListener('keydown',e=>{if(e.key==='Enter')addCat();});
-document.getElementById('td-name').addEventListener('keydown',e=>{if(e.key==='Enter')addTodo();});
-document.getElementById('exp-amt').addEventListener('keydown',e=>{if(e.key==='Enter')addExp();});
+document.getElementById('chk-new-name').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing)addChk();});
+document.getElementById('new-cat-name').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing)addCat();});
+document.getElementById('td-name').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing)addTodo();});
+document.getElementById('exp-amt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing)addExp();});
 document.getElementById('exp-date').valueAsDate=new Date();
 
 // INIT
