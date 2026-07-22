@@ -541,7 +541,7 @@ function renderTodo(){
       rows+='<div class="todo-item">'
         +'<input class="chk-cb" type="checkbox" '+(it.done?'checked':'')+' data-tdid="'+it.id+'">'
         +'<div style="flex:1;min-width:0">'
-          +'<div class="todo-name'+(it.done?' done':'')+'"><span class="tag tag-other">'+esc(c.icon)+'</span>'+esc(it.name)+'</div>'
+          +'<div class="todo-name'+(it.done?' done':'')+'">'+esc(it.name)+'</div>'
           +(it.note?'<div class="todo-note">'+esc(it.note)+'</div>':'')
         +'</div>'
         +'<button class="icon-btn danger" data-tddel="'+it.id+'">&#x2715;</button>'
