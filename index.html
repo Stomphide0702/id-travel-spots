@@ -302,7 +302,7 @@ body{background:var(--bg);font-family:var(--sans)}
 </div>
 </div>
 
-<!-- 編集モーダル -->
+<!-- 持ち物編集モーダル -->
 <div class="modal-overlay" id="edit-modal" style="display:none" onclick="closeEditModal(event)">
   <div class="modal">
     <div class="modal-title">アイテムを編集</div>
@@ -311,6 +311,19 @@ body{background:var(--bg);font-family:var(--sans)}
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeEditModal()">キャンセル</button>
       <button class="btn-add" onclick="saveEdit()">保存</button>
+    </div>
+  </div>
+</div>
+<!-- タスク編集モーダル -->
+<div class="modal-overlay" id="td-edit-modal" style="display:none" onclick="closeTdEditModal(event)">
+  <div class="modal">
+    <div class="modal-title">タスクを編集</div>
+    <select id="td-edit-cat" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:16px;outline:none"></select>
+    <input type="text" id="td-edit-name" placeholder="内容">
+    <input type="text" id="td-edit-note" placeholder="メモ（任意）">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeTdEditModal()">キャンセル</button>
+      <button class="btn-add" onclick="saveTdEdit()">保存</button>
     </div>
   </div>
 </div>
@@ -365,9 +378,11 @@ let {chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections}=lo
 if(!openSections)openSections={};if(!expUid)expUid=0;if(!todoCats||!todoCats.length)todoCats=JSON.parse(JSON.stringify(DEFAULT_TODO_CATS));
 // 旧キー(food/sight/shop/other)→日本語名にマイグレーション
 const TODO_CAT_MIGRATE={food:'食事',sight:'観光',shop:'ショッピング',other:'その他'};
-todoData.forEach(it=>{if(TODO_CAT_MIGRATE[it.cat])it.cat=TODO_CAT_MIGRATE[it.cat];});
+let _migrated=false;
+todoData.forEach(it=>{if(TODO_CAT_MIGRATE[it.cat]){it.cat=TODO_CAT_MIGRATE[it.cat];_migrated=true;}});
 // todoCatsに存在しないカテゴリのアイテムは「その他」に退避（データ消失防止）
-todoData.forEach(it=>{if(!todoCats.some(c=>c.name===it.cat)){if(!todoCats.some(c=>c.name==='その他'))todoCats.push({name:'その他',icon:'📌'});it.cat='その他';}});
+todoData.forEach(it=>{if(!todoCats.some(c=>c.name===it.cat)){const fallback='その他';if(!todoCats.some(c=>c.name===fallback))todoCats.push({name:fallback,icon:'📌'});it.cat=fallback;_migrated=true;}});
+if(_migrated){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections}));}catch(e){}}
 chkData.forEach(it=>{if(!cats.some(c=>c.name===it.cat))cats.push({name:it.cat,icon:'📦'});});
 let chkFilter='all',currentTab='checklist';
 
@@ -544,6 +559,7 @@ function renderTodo(){
           +'<div class="todo-name'+(it.done?' done':'')+'">'+esc(it.name)+'</div>'
           +(it.note?'<div class="todo-note">'+esc(it.note)+'</div>':'')
         +'</div>'
+        +'<button class="icon-btn" data-tdedit="'+it.id+'" title="編集">&#9998;</button>'
         +'<button class="icon-btn danger" data-tddel="'+it.id+'">&#x2715;</button>'
         +'</div>';
     }
@@ -566,9 +582,37 @@ function renderTodo(){
 }
 document.getElementById('todo-groups').addEventListener('click',e=>{
   const cb=e.target.closest('.chk-cb');if(cb){toggleTodo(+cb.dataset.tdid);return;}
+  const edit=e.target.closest('[data-tdedit]');if(edit){openTdEditModal(+edit.dataset.tdedit);return;}
   const del=e.target.closest('[data-tddel]');if(del){delTodo(+del.dataset.tddel);return;}
   const hdr=e.target.closest('.section-hdr');if(hdr)toggleTdSec(hdr.dataset.tdcat);
 });
+
+let tdEditingId=null;
+function openTdEditModal(id){
+  const it=todoData.find(x=>x.id===id);if(!it)return;
+  tdEditingId=id;
+  const sel=document.getElementById('td-edit-cat');
+  sel.innerHTML=todoCats.map(c=>'<option value="'+esc(c.name)+'">'+esc(c.icon)+' '+esc(c.name)+'</option>').join('');
+  sel.value=it.cat;
+  document.getElementById('td-edit-name').value=it.name;
+  document.getElementById('td-edit-note').value=it.note||'';
+  document.getElementById('td-edit-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('td-edit-name').focus(),50);
+}
+function closeTdEditModal(e){
+  if(e&&e.target!==document.getElementById('td-edit-modal'))return;
+  document.getElementById('td-edit-modal').style.display='none';tdEditingId=null;
+}
+function saveTdEdit(){
+  const it=todoData.find(x=>x.id===tdEditingId);if(!it)return;
+  const n=document.getElementById('td-edit-name').value.trim();
+  if(!n){toast('内容を入れてください');return;}
+  it.name=n;it.note=document.getElementById('td-edit-note').value.trim();it.cat=document.getElementById('td-edit-cat').value;
+  saveData();renderTodo();
+  document.getElementById('td-edit-modal').style.display='none';tdEditingId=null;
+  toast('更新しました');
+}
+document.getElementById('td-edit-name').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing)saveTdEdit();});
 function toggleTdSec(cat){tdOpenSec[cat]=tdOpenSec[cat]===false?true:false;renderTodo();}
 function toggleTodo(id){const i=todoData.find(x=>x.id===id);if(i){i.done=!i.done;saveData();renderTodo();}}
 function delTodo(id){todoData=todoData.filter(x=>x.id!==id);saveData();renderTodo();toast('削除しました');}
