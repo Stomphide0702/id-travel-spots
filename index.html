@@ -425,7 +425,7 @@ function renderChk(){
           +(it.note?'<div class="chk-note">'+esc(it.note)+'</div>':'')
         +'</div>'
         +'<div class="chk-actions">'
-          +'<button class="icon-btn" data-edit="'+it.id+'" title="編集">&#9998;</button>'
+          +'<button class="icon-btn" data-edit="'+it.id+'" title="編集">✏️</button>'
           +'<button class="icon-btn danger" data-del="'+it.id+'" title="削除">&#x2715;</button>'
         +'</div>'
         +'</div>';
@@ -559,7 +559,7 @@ function renderTodo(){
           +'<div class="todo-name'+(it.done?' done':'')+'">'+esc(it.name)+'</div>'
           +(it.note?'<div class="todo-note">'+esc(it.note)+'</div>':'')
         +'</div>'
-        +'<button class="icon-btn" data-tdedit="'+it.id+'" title="編集">&#9998;</button>'
+        +'<button class="icon-btn" data-tdedit="'+it.id+'" title="編集">✏️</button>'
         +'<button class="icon-btn danger" data-tddel="'+it.id+'">&#x2715;</button>'
         +'</div>';
     }
