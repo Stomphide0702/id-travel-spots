@@ -186,6 +186,7 @@ body{background:var(--bg);font-family:var(--sans)}
     <div class="topbar-title" id="topbar-title">持ち物リスト</div>
     <div class="topbar-sub" id="topbar-sub"></div>
     <div id="sync-status" style="font-size:11px;font-family:var(--mono);color:var(--muted)">☁ 接続中…</div>
+    <button onclick="syncLoad()" style="background:none;border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--mono)">🔄</button>
   </div>
   <div class="content">
 
@@ -390,26 +391,35 @@ function setSyncStatus(s){
   el.textContent=s==='ok'?'☁ 同期済み':s==='saving'?'☁ 保存中…':'⚠ オフライン';
   el.style.color=s==='ok'?'var(--accent2)':s==='saving'?'var(--muted)':'var(--danger)';
 }
+function applyServerData(d){
+  chkData=d.chk;expData=d.exp||[];todoData=d.todo||[];
+  cats=d.cats&&d.cats.length?d.cats:cats;
+  todoCats=d.todoCats&&d.todoCats.length?d.todoCats:todoCats;
+  expUid=d.expUid||0;openSections=d.openSections||{};
+  const M={food:'食事',sight:'観光',shop:'ショッピング',other:'その他'};
+  todoData.forEach(it=>{if(M[it.cat])it.cat=M[it.cat];});
+  todoData.forEach(it=>{if(!todoCats.some(c=>c.name===it.cat)){if(!todoCats.some(c=>c.name==='その他'))todoCats.push({name:'その他',icon:'📌'});it.cat='その他';}});
+  chkData.forEach(it=>{if(!cats.some(c=>c.name===it.cat))cats.push({name:it.cat,icon:'📦'});});
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch(e){}
+  renderChk();renderCatMgr();renderExp();renderTodo();renderTdCatMgr();
+}
 async function syncLoad(){
   setSyncStatus('saving');
   try{
     const r=await fetch(SYNC_URL+'?k='+SYNC_KEY);
     if(!r.ok){setSyncStatus('err');return;}
     const d=await r.json();
-    if(!d||!d.chk){setSyncStatus('ok');return;}
-    chkData=d.chk;expData=d.exp||[];todoData=d.todo||[];
-    cats=d.cats&&d.cats.length?d.cats:cats;
-    todoCats=d.todoCats&&d.todoCats.length?d.todoCats:todoCats;
-    expUid=d.expUid||0;openSections=d.openSections||{};
-    const M={food:'食事',sight:'観光',shop:'ショッピング',other:'その他'};
-    todoData.forEach(it=>{if(M[it.cat])it.cat=M[it.cat];});
-    todoData.forEach(it=>{if(!todoCats.some(c=>c.name===it.cat)){if(!todoCats.some(c=>c.name==='その他'))todoCats.push({name:'その他',icon:'📌'});it.cat='その他';}});
-    chkData.forEach(it=>{if(!cats.some(c=>c.name===it.cat))cats.push({name:it.cat,icon:'📦'});});
-    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch(e){}
-    renderChk();renderCatMgr();renderExp();renderTodo();renderTdCatMgr();
-    setSyncStatus('ok');
+    if(!d||!d.chk){
+      // サーバーが空→ローカルデータをサーバーに送信
+      syncSave({chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections});
+    } else {
+      applyServerData(d);
+      setSyncStatus('ok');
+    }
   }catch(e){setSyncStatus('err');}
 }
+// ページが表示状態に戻ったとき（スマホでアプリ切り替え後など）自動同期
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncLoad();});
 
 let {chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections}=loadData();
 if(!openSections)openSections={};if(!expUid)expUid=0;if(!todoCats||!todoCats.length)todoCats=JSON.parse(JSON.stringify(DEFAULT_TODO_CATS));
