@@ -403,6 +403,7 @@ function applyServerData(d){
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch(e){}
   renderChk();renderCatMgr();renderExp();renderTodo();renderTdCatMgr();
 }
+// 🔄ボタンを押したときだけサーバーから読み込む（自動上書きしない）
 async function syncLoad(){
   setSyncStatus('saving');
   try{
@@ -410,17 +411,21 @@ async function syncLoad(){
     if(!r.ok){setSyncStatus('err');return;}
     const server=await r.json();
     if(server&&server.chk&&server.chk.length>0){
-      // サーバーにデータあり→適用
       applyServerData(server);
     } else {
-      // サーバーが空→ローカルデータをサーバーへ送信
       syncSave({chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections});
     }
     setSyncStatus('ok');
   }catch(e){setSyncStatus('err');}
 }
-// ページが表示状態に戻ったとき（スマホでアプリ切り替え後など）自動同期
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncLoad();});
+// 起動時はローカルデータをサーバーに送るだけ（上書きしない）
+async function syncPushOnly(){
+  setSyncStatus('saving');
+  try{
+    await fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections,k:SYNC_KEY})});
+    setSyncStatus('ok');
+  }catch(e){setSyncStatus('err');}
+}
 
 let {chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections}=loadData();
 if(!openSections)openSections={};if(!expUid)expUid=0;if(!todoCats||!todoCats.length)todoCats=JSON.parse(JSON.stringify(DEFAULT_TODO_CATS));
@@ -705,7 +710,7 @@ document.getElementById('exp-date').valueAsDate=new Date();
 
 // INIT
 renderChk();renderCatMgr();renderExp();renderTodo();renderTdCatMgr();buildSpotCatBar();renderSpot();
-syncLoad();
+syncPushOnly();
 </script>
 </body>
 </html>
