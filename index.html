@@ -377,7 +377,7 @@ function loadData(){
   return{chk:DEFAULT_CHK,exp:[],todo:DEFAULT_TODO,cats:JSON.parse(JSON.stringify(DEFAULT_CATS)),todoCats:JSON.parse(JSON.stringify(DEFAULT_TODO_CATS)),expUid:0,openSections:{}};
 }
 function saveData(){
-  const d={chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections,updatedAt:Date.now()};
+  const d={chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections};
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch(e){}
   syncSave(d);
 }
@@ -409,18 +409,14 @@ async function syncLoad(){
     const r=await fetch(SYNC_URL+'?k='+SYNC_KEY);
     if(!r.ok){setSyncStatus('err');return;}
     const server=await r.json();
-    const localRaw=localStorage.getItem(STORAGE_KEY);
-    const local=localRaw?JSON.parse(localRaw):null;
-    const serverTime=server&&server.updatedAt?server.updatedAt:0;
-    const localTime=local&&local.updatedAt?local.updatedAt:0;
-    if(!server||!server.chk||localTime>serverTime){
-      // ローカルが新しい→サーバーに送信
-      syncSave({chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections,updatedAt:localTime||Date.now()});
-    } else {
-      // サーバーが新しい→ローカルに適用
+    if(server&&server.chk&&server.chk.length>0){
+      // サーバーにデータあり→適用
       applyServerData(server);
-      setSyncStatus('ok');
+    } else {
+      // サーバーが空→ローカルデータをサーバーへ送信
+      syncSave({chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections});
     }
+    setSyncStatus('ok');
   }catch(e){setSyncStatus('err');}
 }
 // ページが表示状態に戻ったとき（スマホでアプリ切り替え後など）自動同期
