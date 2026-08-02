@@ -239,6 +239,11 @@ body{background:var(--bg);font-family:var(--sans)}
           <select id="exp-cat" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:16px;outline:none">
             <option>交通</option><option>食事</option><option>宿泊</option><option>観光</option><option>ショッピング</option><option>その他</option>
           </select>
+          <select id="exp-method" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:16px;outline:none">
+            <option value="QRIS">QRIS</option>
+            <option value="キャッシュ">キャッシュ</option>
+            <option value="クレジット">クレジット</option>
+          </select>
           <select id="exp-cur" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:16px;outline:none">
             <option value="JPY">円 JPY</option>
             <option value="IDR">ルピア IDR</option>
@@ -250,11 +255,17 @@ body{background:var(--bg);font-family:var(--sans)}
         </div>
       </div>
       <div class="card">
-        <div class="card-title">記録一覧</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="card-title" style="margin-bottom:0">記録一覧</div>
+          <div style="display:flex;gap:6px">
+            <button onclick="toggleExpSort()" id="exp-sort-btn" style="background:transparent;border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:var(--mono)">日付 ↑</button>
+            <button onclick="copyExpLog()" style="background:transparent;border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--muted);cursor:pointer;font-family:var(--mono)">📋 コピー</button>
+          </div>
+        </div>
         <div class="exp-table-wrap">
           <table class="exp-table">
-            <colgroup><col style="width:76px"><col><col style="width:76px"><col style="width:96px"><col style="width:34px"></colgroup>
-            <thead><tr><th>日付</th><th>内容</th><th>カテゴリ</th><th style="text-align:right">金額</th><th></th></tr></thead>
+            <colgroup><col style="width:68px"><col><col style="width:60px"><col style="width:64px"><col style="width:80px"><col style="width:28px"></colgroup>
+            <thead><tr><th>日付</th><th>内容</th><th>カテゴリ</th><th>支払い</th><th style="text-align:right">金額</th><th></th></tr></thead>
             <tbody id="exp-tbody"></tbody>
           </table>
         </div>
@@ -554,16 +565,29 @@ function delCat(i){const c=cats[i];if(!c)return;if(cats.length<=1){toast('最後
 
 // ===== EXPENSE =====
 function toJPY(amount,cur){return amount*(RATES[cur]||1);}
+let expSortAsc=true;
+function toggleExpSort(){
+  expSortAsc=!expSortAsc;
+  document.getElementById('exp-sort-btn').textContent='日付 '+(expSortAsc?'↑':'↓');
+  renderExp();
+}
 function renderExp(){
   const tbody=document.getElementById('exp-tbody');
-  if(!expData.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;font-size:12px;font-family:var(--mono)">費用がまだありません</td></tr>';}
+  let sorted=[...expData].sort((a,b)=>{
+    const da=a.date||'',db=b.date||'';
+    return expSortAsc?(da<db?-1:da>db?1:0):(da>db?-1:da<db?1:0);
+  });
+  const METHOD_ICON={QRIS:'📱',キャッシュ:'💵',クレジット:'💳'};
+  if(!sorted.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;font-size:12px;font-family:var(--mono)">費用がまだありません</td></tr>';}
   else{
-    tbody.innerHTML=expData.map(e=>{
+    tbody.innerHTML=sorted.map(e=>{
       const col=EXP_COLORS[e.cat]||'#888',sym=e.cur==='JPY'?'\xa5':e.cur==='IDR'?'Rp':'$';
       const jpyEq=e.cur!=='JPY'?'<div style="font-size:10px;color:var(--muted)">\xa5'+Math.round(toJPY(e.amount,e.cur)).toLocaleString()+'</div>':'';
-      return'<tr><td style="color:var(--muted);font-family:var(--mono)">'+esc(e.date||'—')+'</td>'
+      const mIcon=METHOD_ICON[e.method]||'';
+      return'<tr><td style="color:var(--muted);font-family:var(--mono);font-size:11px">'+esc(e.date||'—')+'</td>'
         +'<td title="'+esc(e.name)+'">'+esc(e.name)+'</td>'
         +'<td><span class="cat-dot" style="background:'+col+'"></span>'+esc(e.cat)+'</td>'
+        +'<td style="font-size:12px">'+mIcon+' '+esc(e.method||'')+'</td>'
         +'<td style="text-align:right;font-family:var(--mono);color:var(--accent)">'+sym+Math.round(e.amount).toLocaleString()+jpyEq+'</td>'
         +'<td><button class="icon-btn danger" data-expdel="'+e.id+'">&#x2715;</button></td></tr>';
     }).join('');
@@ -578,8 +602,29 @@ function renderExp(){
   document.getElementById('nav-badge-exp').textContent=expData.length;
   updateTopbarSub();
 }
+function copyExpLog(){
+  const sorted=[...expData].sort((a,b)=>{const da=a.date||'',db=b.date||'';return expSortAsc?(da<db?-1:1):(da>db?-1:1);});
+  const tJPY=expData.reduce((s,e)=>s+toJPY(e.amount,e.cur),0);
+  const sym=e=>e.cur==='JPY'?'¥':e.cur==='IDR'?'Rp':'$';
+  let txt='【費用ログ】\n';
+  let curDate='';
+  sorted.forEach(e=>{
+    if(e.date&&e.date!==curDate){txt+='\n▶ '+e.date+'\n';curDate=e.date;}
+    txt+='・'+e.name+' ['+e.cat+'/'+(e.method||'—')+'] '+sym(e)+Math.round(e.amount).toLocaleString();
+    if(e.cur!=='JPY')txt+=' (¥'+Math.round(toJPY(e.amount,e.cur)).toLocaleString()+')';
+    txt+='\n';
+  });
+  txt+='\n合計（円換算）: ¥'+Math.round(tJPY).toLocaleString();
+  navigator.clipboard.writeText(txt).then(()=>toast('コピーしました')).catch(()=>toast('コピー失敗'));
+}
 document.getElementById('exp-tbody').addEventListener('click',e=>{const btn=e.target.closest('[data-expdel]');if(btn)delExp(+btn.dataset.expdel);});
-function addExp(){const n=document.getElementById('exp-name').value.trim(),a=parseFloat(document.getElementById('exp-amt').value);if(!n||!a){toast('内容と金額を入れてください');return;}expData.push({id:++expUid,name:n,cat:document.getElementById('exp-cat').value,amount:a,cur:document.getElementById('exp-cur').value,date:document.getElementById('exp-date').value});document.getElementById('exp-name').value='';document.getElementById('exp-amt').value='';saveData();renderExp();toast('追加しました');}
+function addExp(){
+  const n=document.getElementById('exp-name').value.trim(),a=parseFloat(document.getElementById('exp-amt').value);
+  if(!n||!a){toast('内容と金額を入れてください');return;}
+  expData.push({id:++expUid,name:n,cat:document.getElementById('exp-cat').value,method:document.getElementById('exp-method').value,amount:a,cur:document.getElementById('exp-cur').value,date:document.getElementById('exp-date').value});
+  document.getElementById('exp-name').value='';document.getElementById('exp-amt').value='';
+  saveData();renderExp();toast('追加しました');
+}
 function delExp(id){expData=expData.filter(x=>x.id!==id);saveData();renderExp();toast('削除しました');}
 
 // ===== TASK =====
