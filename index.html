@@ -327,6 +327,28 @@ body{background:var(--bg);font-family:var(--sans)}
     </div>
   </div>
 </div>
+<!-- 費用編集モーダル -->
+<div class="modal-overlay" id="exp-edit-modal" style="display:none" onclick="closeExpEditModal(event)">
+  <div class="modal">
+    <div class="modal-title">費用を編集</div>
+    <input type="text" id="exp-edit-name" placeholder="内容" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:16px;outline:none">
+    <select id="exp-edit-cat" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:16px;outline:none">
+      <option>交通</option><option>食事</option><option>宿泊</option><option>観光</option><option>ショッピング</option><option>その他</option>
+    </select>
+    <select id="exp-edit-method" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:16px;outline:none">
+      <option value="QRIS">QRIS</option><option value="キャッシュ">キャッシュ</option><option value="クレジット">クレジット</option>
+    </select>
+    <select id="exp-edit-cur" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:16px;outline:none">
+      <option value="JPY">円 JPY</option><option value="IDR">ルピア IDR</option><option value="USD">ドル USD</option>
+    </select>
+    <input type="number" id="exp-edit-amt" placeholder="金額" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:16px;outline:none">
+    <input type="date" id="exp-edit-date" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:16px;outline:none">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeExpEditModal()">キャンセル</button>
+      <button class="btn-add" onclick="saveExpEdit()">保存</button>
+    </div>
+  </div>
+</div>
 <!-- タスク編集モーダル -->
 <div class="modal-overlay" id="td-edit-modal" style="display:none" onclick="closeTdEditModal(event)">
   <div class="modal">
@@ -589,7 +611,7 @@ function renderExp(){
         +'<td><span class="cat-dot" style="background:'+col+'"></span>'+esc(e.cat)+'</td>'
         +'<td style="font-size:12px">'+mIcon+' '+esc(e.method||'')+'</td>'
         +'<td style="text-align:right;font-family:var(--mono);color:var(--accent)">'+sym+Math.round(e.amount).toLocaleString()+jpyEq+'</td>'
-        +'<td><button class="icon-btn danger" data-expdel="'+e.id+'">&#x2715;</button></td></tr>';
+        +'<td style="white-space:nowrap"><button class="icon-btn" data-expedit="'+e.id+'" title="編集">✏️</button><button class="icon-btn danger" data-expdel="'+e.id+'">&#x2715;</button></td></tr>';
     }).join('');
   }
   const tJPY=expData.reduce((s,e)=>s+toJPY(e.amount,e.cur),0);
@@ -617,7 +639,39 @@ function copyExpLog(){
   txt+='\n合計（円換算）: ¥'+Math.round(tJPY).toLocaleString();
   navigator.clipboard.writeText(txt).then(()=>toast('コピーしました')).catch(()=>toast('コピー失敗'));
 }
-document.getElementById('exp-tbody').addEventListener('click',e=>{const btn=e.target.closest('[data-expdel]');if(btn)delExp(+btn.dataset.expdel);});
+document.getElementById('exp-tbody').addEventListener('click',e=>{
+  const edit=e.target.closest('[data-expedit]');if(edit){openExpEditModal(+edit.dataset.expedit);return;}
+  const del=e.target.closest('[data-expdel]');if(del)delExp(+del.dataset.expdel);
+});
+let expEditingId=null;
+function openExpEditModal(id){
+  const it=expData.find(x=>x.id===id);if(!it)return;
+  expEditingId=id;
+  document.getElementById('exp-edit-name').value=it.name;
+  document.getElementById('exp-edit-cat').value=it.cat;
+  document.getElementById('exp-edit-method').value=it.method||'QRIS';
+  document.getElementById('exp-edit-cur').value=it.cur;
+  document.getElementById('exp-edit-amt').value=it.amount;
+  document.getElementById('exp-edit-date').value=it.date||'';
+  document.getElementById('exp-edit-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('exp-edit-name').focus(),50);
+}
+function closeExpEditModal(e){
+  if(e&&e.target!==document.getElementById('exp-edit-modal'))return;
+  document.getElementById('exp-edit-modal').style.display='none';expEditingId=null;
+}
+function saveExpEdit(){
+  const it=expData.find(x=>x.id===expEditingId);if(!it)return;
+  const n=document.getElementById('exp-edit-name').value.trim(),a=parseFloat(document.getElementById('exp-edit-amt').value);
+  if(!n||!a){toast('内容と金額を入れてください');return;}
+  it.name=n;it.cat=document.getElementById('exp-edit-cat').value;
+  it.method=document.getElementById('exp-edit-method').value;
+  it.cur=document.getElementById('exp-edit-cur').value;
+  it.amount=a;it.date=document.getElementById('exp-edit-date').value;
+  saveData();renderExp();
+  document.getElementById('exp-edit-modal').style.display='none';expEditingId=null;
+  toast('更新しました');
+}
 function addExp(){
   const n=document.getElementById('exp-name').value.trim(),a=parseFloat(document.getElementById('exp-amt').value);
   if(!n||!a){toast('内容と金額を入れてください');return;}
