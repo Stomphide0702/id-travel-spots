@@ -185,8 +185,9 @@ body{background:var(--bg);font-family:var(--sans)}
   <div class="topbar">
     <div class="topbar-title" id="topbar-title">持ち物リスト</div>
     <div class="topbar-sub" id="topbar-sub"></div>
-    <div id="sync-status" style="font-size:11px;font-family:var(--mono);color:var(--muted)">☁ 接続中…</div>
-    <button onclick="syncLoad()" style="background:none;border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--mono)">🔄</button>
+    <div id="sync-status" style="font-size:11px;font-family:var(--mono);color:var(--muted)">☁ 未保存</div>
+    <button onclick="syncLoad()" style="background:none;border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--mono)">🔄 読込</button>
+    <button onclick="manualSave()" style="background:var(--accent);border:none;border-radius:6px;padding:5px 10px;font-size:12px;color:var(--on-accent);cursor:pointer;font-family:var(--mono);font-weight:700">💾 保存</button>
   </div>
   <div class="content">
 
@@ -410,6 +411,12 @@ function loadData(){
   return{chk:DEFAULT_CHK,exp:[],todo:DEFAULT_TODO,cats:JSON.parse(JSON.stringify(DEFAULT_CATS)),todoCats:JSON.parse(JSON.stringify(DEFAULT_TODO_CATS)),expUid:0,openSections:{}};
 }
 function saveData(){
+  // localStorageにのみ保存（サーバーには💾ボタンで送る）
+  const d={chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections};
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch(e){}
+  setSyncStatus('unsaved');
+}
+function manualSave(){
   const d={chk:chkData,exp:expData,todo:todoData,cats,todoCats,expUid,openSections};
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch(e){}
   syncSave(d);
@@ -421,8 +428,10 @@ function syncSave(d){
 }
 function setSyncStatus(s){
   const el=document.getElementById('sync-status');if(!el)return;
-  el.textContent=s==='ok'?'☁ 同期済み':s==='saving'?'☁ 保存中…':'⚠ オフライン';
-  el.style.color=s==='ok'?'var(--accent2)':s==='saving'?'var(--muted)':'var(--danger)';
+  if(s==='ok'){el.textContent='☁ 保存済み';el.style.color='var(--accent2)';}
+  else if(s==='saving'){el.textContent='☁ 保存中…';el.style.color='var(--muted)';}
+  else if(s==='unsaved'){el.textContent='💾 未保存';el.style.color='var(--danger)';}
+  else{el.textContent='⚠ オフライン';el.style.color='var(--danger)';}
 }
 function applyServerData(d){
   chkData=d.chk;expData=d.exp||[];todoData=d.todo||[];
