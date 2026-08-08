@@ -103,11 +103,15 @@ body{background:var(--bg);font-family:var(--sans)}
 /* EXPENSE */
 .exp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
 .exp-grid .full{grid-column:1/-1}
-.exp-table-wrap{overflow-x:auto}
-.exp-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
-.exp-table th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--border)}
-.exp-table td{padding:10px 8px;border-bottom:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}
-.exp-table tr:last-child td{border-bottom:none}
+.exp-table-wrap{}
+.exp-card{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)}
+.exp-card:last-child{border-bottom:none}
+.exp-card-body{flex:1;min-width:0}
+.exp-card-top{display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.exp-card-name{font-size:14px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.exp-card-amt{font-family:var(--mono);font-size:14px;color:var(--accent);white-space:nowrap}
+.exp-card-sub{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.exp-card-actions{display:flex;gap:4px;flex-shrink:0}
 .cat-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
 .total-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 0 0;border-top:1px solid var(--border);margin-top:4px}
 .total-bar .lbl{font-size:12px;color:var(--muted);font-family:var(--mono)}
@@ -264,11 +268,7 @@ body{background:var(--bg);font-family:var(--sans)}
           </div>
         </div>
         <div class="exp-table-wrap">
-          <table class="exp-table">
-            <colgroup><col style="width:68px"><col><col style="width:60px"><col style="width:64px"><col style="width:80px"><col style="width:28px"></colgroup>
-            <thead><tr><th>日付</th><th>内容</th><th>カテゴリ</th><th>支払い</th><th style="text-align:right">金額</th><th></th></tr></thead>
-            <tbody id="exp-tbody"></tbody>
-          </table>
+          <div id="exp-tbody"></div>
         </div>
         <div class="total-bar"><span class="lbl">TOTAL (JPY換算)</span><span class="amt" id="exp-grand">&#165;0</span></div>
         <div class="rate-note" id="rate-note"></div>
@@ -609,18 +609,26 @@ function renderExp(){
     return expSortAsc?(da<db?-1:da>db?1:0):(da>db?-1:da<db?1:0);
   });
   const METHOD_ICON={QRIS:'📱',キャッシュ:'💵',クレジット:'💳'};
-  if(!sorted.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;font-size:12px;font-family:var(--mono)">費用がまだありません</td></tr>';}
+  if(!sorted.length){tbody.innerHTML='<div style="text-align:center;color:var(--muted);padding:20px;font-size:12px;font-family:var(--mono)">費用がまだありません</div>';}
   else{
     tbody.innerHTML=sorted.map(e=>{
       const col=EXP_COLORS[e.cat]||'#888',sym=e.cur==='JPY'?'\xa5':e.cur==='IDR'?'Rp':'$';
-      const jpyEq=e.cur!=='JPY'?'<div style="font-size:10px;color:var(--muted)">\xa5'+Math.round(toJPY(e.amount,e.cur)).toLocaleString()+'</div>':'';
+      const jpyEq=e.cur!=='JPY'?' <span style="font-size:10px;color:var(--muted)">\xa5'+Math.round(toJPY(e.amount,e.cur)).toLocaleString()+'</span>':'';
       const mIcon=METHOD_ICON[e.method]||'';
-      return'<tr><td style="color:var(--muted);font-family:var(--mono);font-size:11px">'+esc(e.date||'—')+'</td>'
-        +'<td title="'+esc(e.name)+'">'+esc(e.name)+'</td>'
-        +'<td><span class="cat-dot" style="background:'+col+'"></span>'+esc(e.cat)+'</td>'
-        +'<td style="font-size:12px">'+mIcon+' '+esc(e.method||'')+'</td>'
-        +'<td style="text-align:right;font-family:var(--mono);color:var(--accent)">'+sym+Math.round(e.amount).toLocaleString()+jpyEq+'</td>'
-        +'<td style="white-space:nowrap"><button class="icon-btn" data-expedit="'+e.id+'" title="編集">✏️</button><button class="icon-btn danger" data-expdel="'+e.id+'">&#x2715;</button></td></tr>';
+      return'<div class="exp-card">'
+        +'<div class="exp-card-body">'
+        +'<div class="exp-card-top">'
+        +'<span class="cat-dot" style="background:'+col+';flex-shrink:0"></span>'
+        +'<span class="exp-card-name">'+esc(e.name)+'</span>'
+        +'<span class="exp-card-amt">'+sym+Math.round(e.amount).toLocaleString()+jpyEq+'</span>'
+        +'</div>'
+        +'<div class="exp-card-sub">'+esc(e.date||'—')+' · '+esc(e.cat)+' · '+mIcon+esc(e.method||'')+'</div>'
+        +'</div>'
+        +'<div class="exp-card-actions">'
+        +'<button class="icon-btn" data-expedit="'+e.id+'" title="編集">✏️</button>'
+        +'<button class="icon-btn danger" data-expdel="'+e.id+'" title="削除">🗑️</button>'
+        +'</div>'
+        +'</div>';
     }).join('');
   }
   const tJPY=expData.reduce((s,e)=>s+toJPY(e.amount,e.cur),0);
